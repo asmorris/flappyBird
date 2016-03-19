@@ -8,35 +8,148 @@
 
 import SpriteKit
 
-class GameScene: SKScene {
+class GameScene: SKScene, SKPhysicsContactDelegate {
+    
+    var bird = SKSpriteNode()
+    var background = SKSpriteNode()
+    var pipe1 = SKSpriteNode()
+    var pipe2 = SKSpriteNode()
+    
+    enum ColliderType:UInt32 {
+        case Bird = 1
+        case Object = 2
+    }
+    
+    var gameOver = false
+    
     override func didMoveToView(view: SKView) {
-        /* Setup your scene here */
-        let myLabel = SKLabelNode(fontNamed:"Chalkduster")
-        myLabel.text = "Hello, World!"
-        myLabel.fontSize = 45
-        myLabel.position = CGPoint(x:CGRectGetMidX(self.frame), y:CGRectGetMidY(self.frame))
         
-        self.addChild(myLabel)
+        self.physicsWorld.contactDelegate = self
+        
+        //Mark: Background Creation
+        let backgroundTexture = SKTexture(imageNamed: "bg.png")
+        
+        
+        
+        let moveBg = SKAction.moveByX(-backgroundTexture.size().width, y: 0, duration: 9)
+        let replaceBackground = SKAction.moveByX(backgroundTexture.size().width, y: 0, duration: 0)
+        let moveBgForever = SKAction.repeatActionForever(SKAction.sequence([moveBg, replaceBackground]))
+        
+        
+        for var i:CGFloat = 0;i<3;i++ {
+            
+            background = SKSpriteNode(texture: backgroundTexture)
+            background.position = CGPoint(x: backgroundTexture.size().width / 2 + backgroundTexture.size().width * i, y: CGRectGetMidY(self.frame))
+            background.size.height = self.frame.height
+            
+            background.runAction(moveBgForever)
+            background.zPosition = 10
+
+            self.addChild(background)
+
+        }
+        
+
+
+        //Mark: Bird Creation
+        let birdTexture = SKTexture(imageNamed: "flappy1.png")
+        let birdTextureTwo = SKTexture(imageNamed: "flappy2.png")
+        
+        let animation = SKAction.animateWithTextures([birdTexture, birdTextureTwo], timePerFrame: 0.2)
+        let makeBirdFlap = SKAction.repeatActionForever(animation)
+        
+        bird = SKSpriteNode(texture: birdTexture)
+        
+        
+        bird.position = CGPoint(x: CGRectGetMidX(self.frame), y: CGRectGetMidY(self.frame))
+        
+        bird.runAction(makeBirdFlap)
+        bird.zPosition = 20
+        
+        bird.physicsBody = SKPhysicsBody(circleOfRadius: birdTexture.size().height / 2)
+        bird.physicsBody!.dynamic = true
+        
+        bird.physicsBody?.categoryBitMask = ColliderType.Bird.rawValue
+        bird.physicsBody?.contactTestBitMask = ColliderType.Object.rawValue
+        bird.physicsBody?.collisionBitMask = ColliderType.Object.rawValue
+
+        
+        self.addChild(bird)
+        
+        //Mark: Add ground
+        
+        var ground = SKNode()
+        ground.position = CGPointMake(0, 0)
+        ground.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(self.frame.size.width, 1))
+        ground.physicsBody?.dynamic = false
+        
+        ground.physicsBody?.categoryBitMask = ColliderType.Object.rawValue
+        ground.physicsBody?.contactTestBitMask = ColliderType.Object.rawValue
+        ground.physicsBody?.collisionBitMask = ColliderType.Object.rawValue
+        
+        self.addChild(ground)
+        
+        
+        
+        _ = NSTimer.scheduledTimerWithTimeInterval(2.5, target: self, selector: Selector("makePipes"), userInfo: nil, repeats: true)
+        
+    }
+    
+    func makePipes() {
+        let gapHeight = bird.size.height * 3
+        
+        let movementAmount = arc4random() % UInt32(self.frame.size.height/2)
+        let pipeOffset = CGFloat(movementAmount) - self.frame.size.height/4
+        
+        let movePipes = SKAction.moveByX(-self.frame.size.width * 2, y: 0, duration: NSTimeInterval(self.frame.size.width / 100))
+        let removePipes = SKAction.removeFromParent()
+        let moveAndRemovePipes = SKAction.sequence([movePipes, removePipes])
+        
+        
+        var pipe1Texture = SKTexture(imageNamed: "pipe1.png")
+        pipe1 = SKSpriteNode(texture: pipe1Texture)
+        pipe1.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width, y: CGRectGetMidY(self.frame) + pipe1Texture.size().height/2 + gapHeight/2 + pipeOffset)
+        self.addChild(pipe1)
+        pipe1.runAction(moveAndRemovePipes)
+        pipe1.physicsBody = SKPhysicsBody(rectangleOfSize: pipe1Texture.size())
+        
+        pipe1.physicsBody?.categoryBitMask = ColliderType.Object.rawValue
+        pipe1.physicsBody?.contactTestBitMask = ColliderType.Object.rawValue
+        pipe1.physicsBody?.collisionBitMask = ColliderType.Object.rawValue
+        pipe1.physicsBody?.dynamic = false
+
+        pipe1.zPosition = 15
+        
+        var pipe2Texture = SKTexture(imageNamed: "pipe2.png")
+        pipe2 = SKSpriteNode(texture: pipe2Texture)
+        pipe2.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width, y: CGRectGetMidY(self.frame) - pipe2Texture.size().height/2 - gapHeight/2 + pipeOffset)
+        self.addChild(pipe2)
+        pipe2.runAction(moveAndRemovePipes)
+        pipe2.physicsBody = SKPhysicsBody(rectangleOfSize: pipe1Texture.size())
+        pipe2.physicsBody?.dynamic = false
+        
+        pipe2.physicsBody?.categoryBitMask = ColliderType.Object.rawValue
+        pipe2.physicsBody?.contactTestBitMask = ColliderType.Object.rawValue
+        pipe2.physicsBody?.collisionBitMask = ColliderType.Object.rawValue
+        pipe2.zPosition = 15
+
+    }
+    
+    func didBeginContact(contact: SKPhysicsContact) {
+
+        gameOver = true
+        self.speed = 0
+    
     }
     
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
        /* Called when a touch begins */
         
-        for touch in touches {
-            let location = touch.locationInNode(self)
-            
-            let sprite = SKSpriteNode(imageNamed:"Spaceship")
-            
-            sprite.xScale = 0.5
-            sprite.yScale = 0.5
-            sprite.position = location
-            
-            let action = SKAction.rotateByAngle(CGFloat(M_PI), duration:1)
-            
-            sprite.runAction(SKAction.repeatActionForever(action))
-            
-            self.addChild(sprite)
+        if gameOver == false {
+            bird.physicsBody?.velocity = CGVectorMake(0, 0)
+            bird.physicsBody?.applyImpulse(CGVectorMake(0, 50))
         }
+        
     }
    
     override func update(currentTime: CFTimeInterval) {
